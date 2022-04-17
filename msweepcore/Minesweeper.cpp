@@ -4,6 +4,10 @@
 #include "CompAssets.h"
 #include "Minesweeper.h"
 
+#ifdef _DEBUG
+#include <iostream>
+#endif
+
 using namespace winrt;
 
 using namespace Windows::Foundation;
@@ -55,10 +59,7 @@ void Minesweeper::OnPointerMoved(float2 point)
     std::optional<TileCoordinate> selectedTile = std::nullopt;
     if (auto tile = m_ui->HitTest(point))
     {
-        if (m_mineStates[m_indexHelper->ComputeIndex(tile->x, tile->y)] != MineState::Revealed)
-        {
-            selectedTile.swap(std::optional<TileCoordinate>(tile));
-        }
+        selectedTile.swap(std::optional<TileCoordinate>(tile));
     }
     m_ui->SelectTile(selectedTile);
 }
@@ -69,6 +70,7 @@ void Minesweeper::OnParentSizeChanged(float2 newSize)
 }
 
 void Minesweeper::OnPointerPressed(
+    bool middleClick,
     bool isRightButton,
     bool isEraser)
 {
@@ -85,11 +87,17 @@ void Minesweeper::OnPointerPressed(
         {
             if (isRightButton || isEraser)
             {
-                auto state = CycleMineState(m_mineStates[index]);
-                m_mineStates[index] = state;
-                m_ui->UpdateTileWithState(*currentSelection, state);
+                try {
+                    auto state = CycleMineState(m_mineStates[index]);
+                    m_mineStates[index] = state;
+                    m_ui->UpdateTileWithState(*currentSelection, state);
+                }
+                catch(std::runtime_error)
+                {
+                    return;
+                }
             }
-            else if (m_mineStates[index] == MineState::Empty)
+            else if (!middleClick && m_mineStates[index] == MineState::Empty)
             {
                 if (Sweep(currentSelection->x, currentSelection->y))
                 {
@@ -112,6 +120,74 @@ void Minesweeper::OnPointerPressed(
                 }
             }
         }
+        else if(middleClick && m_mineStates[index] == MineState::Revealed)
+        {
+            int flaggedCount = 0;
+            std::vector<int> ignoreInds;
+            for(int i = 0; i < 9; i++)
+            {
+#ifdef _DEBUG
+                std::cout << m_indexHelper->ComputeIndex(currentSelection->x + (i % 3 - 1), currentSelection->y + (i / 3 - 1));
+#endif
+                int tempi = m_indexHelper->ComputeIndex(currentSelection->x + (i % 3 - 1), currentSelection->y + (i / 3 - 1));
+                if(!m_indexHelper->IsInBounds(currentSelection->x + (i % 3 - 1), currentSelection->y + (i / 3 - 1)))
+                {
+                    ignoreInds.push_back(tempi);
+                }
+                else if(tempi == index)
+                {
+                    ignoreInds.push_back(tempi);
+                }
+                else if(m_mineStates[tempi] == MineState::Flag)
+                {
+                    flaggedCount++;
+                    ignoreInds.push_back(tempi);
+                }
+                else if(m_mineStates[tempi] == MineState::Revealed)
+                {
+                    ignoreInds.push_back(tempi);
+                }
+            }
+            assert(ignoreInds.size() > 0);
+            if(flaggedCount == m_neighborCounts[index])
+            {
+                for(int i = 0; i < 9; i++)
+                {
+                    bool doIgnore = false;
+                    for(auto ind : ignoreInds)
+                    {
+                        if(ind == m_indexHelper->ComputeIndex(currentSelection->x + (i % 3 - 1), currentSelection->y + (i / 3 - 1)))
+                        {
+                            doIgnore = true;
+                            break;
+                        }
+                    }
+                    if(!doIgnore)
+                    {
+                        if(Sweep(currentSelection->x + (i % 3 - 1), currentSelection->y + (i / 3 - 1)))
+                        {
+                            // We hit a mine! Setup and play an animation while locking any input.
+                            auto hitX = currentSelection->x + (i % 3 - 1);
+                            auto hitY = currentSelection->y + (i / 3 - 1);
+
+                            // First, hide the selection visual and reset the selection
+                            m_ui->SelectTile(std::nullopt);
+
+                            PlayAnimationOnAllMines(hitX, hitY);
+
+                            m_gameOver = true;
+                        }
+                        else if(CheckIfWon())
+                        {
+                            m_ui->SelectTile(std::nullopt);
+                            // TODO: Play a win animation
+                            m_gameOver = true;
+                        }
+                    }
+                }
+            }
+        }
+            
     }
 }
 

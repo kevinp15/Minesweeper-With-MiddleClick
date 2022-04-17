@@ -21,6 +21,7 @@ public:
     virtual void OnPointerMoved(winrt::Windows::Foundation::Numerics::float2 point) = 0;
     virtual void OnParentSizeChanged(winrt::Windows::Foundation::Numerics::float2 newSize) = 0;
     virtual void OnPointerPressed(
+        bool middleClick,
         bool isRightButton,
         bool isEraser) = 0;
 };

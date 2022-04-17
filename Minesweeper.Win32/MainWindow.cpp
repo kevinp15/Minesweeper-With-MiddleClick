@@ -69,11 +69,13 @@ LRESULT MainWindow::MessageHandler(UINT const message, WPARAM const wparam, LPAR
     }
         break;
     case WM_LBUTTONDOWN:
-        m_game->OnPointerPressed(false, false);
+        m_game->OnPointerPressed(false, false, false);
         break;
     case WM_RBUTTONDOWN:
-        m_game->OnPointerPressed(true, false);
+        m_game->OnPointerPressed(false, true, false);
         break;
+    case WM_MBUTTONDOWN:
+        m_game->OnPointerPressed(true, false, false);
     }
 
     return base_type::MessageHandler(message, wparam, lparam);

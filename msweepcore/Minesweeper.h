@@ -12,6 +12,7 @@ public:
     void OnPointerMoved(winrt::Windows::Foundation::Numerics::float2 point) override;
     void OnParentSizeChanged(winrt::Windows::Foundation::Numerics::float2 newSize) override;
     void OnPointerPressed(
+        bool middleClick,
         bool isRightButton,
         bool isEraser) override;
 
